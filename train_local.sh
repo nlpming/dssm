@@ -23,7 +23,7 @@ query_max_char_length=50
 doc_max_char_length=200
 last_hidden_size=64
 char_vocab_size=18672
-NEG=5
+NEG=10
 gpuid=0
 
 python main.py \
