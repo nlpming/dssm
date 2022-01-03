@@ -116,6 +116,7 @@ def model_fn(features, labels, mode, params):
     # Train
     if mode == tf.estimator.ModeKeys.TRAIN:
         global_step = tf.train.get_global_step()
+        #train_op = tf.train.AdamOptimizer().minimize(loss, global_step=global_step)
         train_op = tf.train.AdagradOptimizer(FLAGS.learning_rate).minimize(loss, global_step=global_step)
         return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
 
