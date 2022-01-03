@@ -62,19 +62,19 @@ def main(unused_argv):
     if FLAGS.run_on_cluster:
         if task_type == "chief":
             if FLAGS.export_query_model:
-                feed_dict = {"query_char": FLAGS.query_max_char_length}
+                feed_dict = {"query": FLAGS.query_max_char_length}
                 export_model(feed_dict, FLAGS.query_model_path)
             if FLAGS.export_doc_model:
                 FLAGS.export_query_model = False
-                feed_dict = {"doc_char": FLAGS.doc_max_char_length}
+                feed_dict = {"doc": FLAGS.doc_max_char_length}
                 export_model(feed_dict, FLAGS.doc_model_path)
     else:
         if FLAGS.export_query_model:
-            feed_dict = {"query_char": FLAGS.query_max_char_length}
+            feed_dict = {"query": FLAGS.query_max_char_length}
             export_model(feed_dict, FLAGS.query_model_path)
         if FLAGS.export_doc_model:
             FLAGS.export_query_model = False
-            feed_dict = {"doc_char": FLAGS.doc_max_char_length}
+            feed_dict = {"doc": FLAGS.doc_max_char_length}
             export_model(feed_dict, FLAGS.doc_model_path)
 
 

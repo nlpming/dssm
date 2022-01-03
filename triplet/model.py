@@ -55,7 +55,7 @@ def sentence_embedding(inputs, reuse=None, max_sentence_length=50, scope_name="c
 
 def build_query_model(features, mode):
     # 输入shape: [batch_size, sentence_size]
-    char_input = tf.reshape(features["query_char"], [-1, FLAGS.query_max_char_length])
+    char_input = tf.reshape(features["query"], [-1, FLAGS.query_max_char_length])
     char_embed = word_embedding(char_input, None, FLAGS.char_vocab_size, FLAGS.char_embedding_size, "char_embedding")
     sent_encoder = sentence_embedding(char_embed,
                                       None,
@@ -65,18 +65,27 @@ def build_query_model(features, mode):
     sent_encoder = tf.nn.l2_normalize(sent_encoder)
     return sent_encoder
 
-def build_doc_model(features, mode):
+def build_doc_model(features, mode, feature_key="doc", reuse=None):
     # 输入shape: [batch_size, sentence_size]
-    char_input = tf.reshape(features["doc_char"], [-1, FLAGS.doc_max_char_length])
+    char_input = tf.reshape(features[feature_key], [-1, FLAGS.doc_max_char_length])
     char_embed = word_embedding(char_input, True, FLAGS.char_vocab_size, FLAGS.char_embedding_size, "char_embedding")
     sent_encoder = sentence_embedding(char_embed,
                                       True if mode==tf.estimator.ModeKeys.TRAIN else tf.AUTO_REUSE,
                                       FLAGS.doc_max_char_length,
                                       "char_sent")
-    sent_encoder = tf.layers.dense(sent_encoder, units=FLAGS.last_hidden_size, activation=tf.nn.tanh, name="doc_encoder")
+    sent_encoder = tf.layers.dense(sent_encoder, units=FLAGS.last_hidden_size, activation=tf.nn.tanh, name="doc_encoder",
+                                      reuse=reuse)
     sent_encoder = tf.nn.l2_normalize(sent_encoder)
     return sent_encoder
 
+def cosine_similarity(query_vec, doc_vec):
+    query_norm = tf.sqrt(tf.reduce_sum(tf.square(query_vec), axis=1, keepdims=True))
+    doc_norm = tf.sqrt(tf.reduce_sum(tf.square(doc_vec), axis=1, keepdims=True))
+
+    prod = tf.reduce_sum(tf.multiply(query_vec, doc_vec), axis=1, keepdims=True)
+    norm_prod = tf.multiply(query_norm, doc_norm)
+    cos_sim = tf.truediv(prod, norm_prod)
+    return cos_sim
 
 def model_fn(features, labels, mode, params):
     # Predict
@@ -90,31 +99,15 @@ def model_fn(features, labels, mode, params):
         export_outputs = {"predictions": tf.estimator.export.PredictOutput(outputs=predictions)}
         return tf.estimator.EstimatorSpec(mode, predictions=predictions, export_outputs=export_outputs)
 
-    query_encoder = build_query_model(features, mode)
-    doc_encoder = build_doc_model(features, mode)
+    query_vec = build_query_model(features, mode)
+    doc_pos_vec = build_doc_model(features, mode, feature_key="doc_pos", reuse=None)
+    doc_neg_vec = build_doc_model(features, mode, feature_key="doc_neg", reuse=True)
 
-    with tf.name_scope("fd-rotate"):
-        tmp = tf.tile(doc_encoder, [1, 1])
-        doc_encoder_fd = doc_encoder
-        for i in range(FLAGS.NEG):
-            rand = random.randint(1, FLAGS.batch_size + i) % FLAGS.batch_size
-            s1 = tf.slice(tmp, [rand, 0], [FLAGS.batch_size - rand, -1])
-            s2 = tf.slice(tmp, [0, 0], [rand, -1])
-            doc_encoder_fd = tf.concat([doc_encoder_fd, s1, s2], axis=0)
-        query_norm = tf.tile(tf.sqrt(tf.reduce_sum(tf.square(query_encoder), axis=1, keepdims=True)), [FLAGS.NEG + 1, 1])
-        doc_norm = tf.sqrt(tf.reduce_sum(tf.square(doc_encoder_fd), axis=1, keepdims=True))
-        query_encoder_fd = tf.tile(query_encoder, [FLAGS.NEG + 1, 1])
-        prod = tf.reduce_sum(tf.multiply(query_encoder_fd, doc_encoder_fd), axis=1, keepdims=True)
-        norm_prod = tf.multiply(query_norm, doc_norm)
-        cos_sim_raw = tf.truediv(prod, norm_prod)
-        cos_sim = tf.transpose(tf.reshape(tf.transpose(cos_sim_raw), [FLAGS.NEG + 1, -1])) * 20
+    pos_score = cosine_similarity(query_vec, doc_pos_vec)
+    neg_score = cosine_similarity(query_vec, doc_neg_vec)
 
-    with tf.name_scope("loss"):
-        prob = tf.nn.softmax(cos_sim)
-        hit_prob = tf.slice(prob, [0, 0], [-1, 1])
-        loss = -tf.reduce_mean(tf.log(hit_prob))
-        correct_prediction = tf.cast(tf.equal(tf.argmax(prob, 1), 0), tf.float32)
-        accuracy = tf.reduce_mean(correct_prediction)
+    # Bpr loss
+    loss = tf.reduce_mean(-tf.log(tf.nn.sigmoid(pos_score - neg_score)))
 
     # Eval
     if mode == tf.estimator.ModeKeys.EVAL:
@@ -126,3 +119,5 @@ def model_fn(features, labels, mode, params):
         train_op = tf.train.AdamOptimizer().minimize(loss, global_step=global_step)
         #train_op = tf.train.AdagradOptimizer(FLAGS.learning_rate).minimize(loss, global_step=global_step)
         return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
+
+
