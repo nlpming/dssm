@@ -38,7 +38,8 @@ def convert_tfrecord(in_file, out_file, vocab_path, query_size=50, doc_size=200)
             feed_dict = {
                 "query": create_int_feature(query),
                 "doc_pos": create_int_feature(doc_pos),
-                "doc_neg": create_int_feature(doc_neg)
+                "doc_neg": create_int_feature(doc_neg),
+                "label": create_int_feature([1]),
             }
             example = tf.train.Example(features=tf.train.Features(feature=feed_dict))
             serialized = example.SerializeToString()
