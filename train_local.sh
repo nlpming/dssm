@@ -14,7 +14,7 @@ doc_model_dir=./doc_model
 train_data=./data/*.tfrecord
 eval_data=./data/*.tfrecord  # 这里评估数据没有用，直接设置为训练数据
 train_steps=100000  # 训练步骤
-batch_size=512
+batch_size=32
 learning_rate=0.001
 save_steps=100000
 char_embedding_size=200
@@ -23,7 +23,7 @@ query_max_char_length=50
 doc_max_char_length=200
 last_hidden_size=64
 char_vocab_size=18672
-NEG=50
+NEG=5
 gpuid=0
 
 python main.py \
