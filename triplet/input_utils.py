@@ -14,8 +14,10 @@ FLAGS = config.FLAGS
 def parse_exp(example):
     features_def = dict()
     features_def["label"] = tf.io.FixedLenFeature([1], tf.int64)
-    features_def["query_char"] = tf.io.FixedLenFeature([FLAGS.query_max_char_length], tf.int64)
-    features_def["doc_char"] = tf.io.FixedLenFeature([FLAGS.doc_max_char_length], tf.int64)
+    features_def["query"] = tf.io.FixedLenFeature([FLAGS.query_max_char_length], tf.int64)
+    features_def["doc_pos"] = tf.io.FixedLenFeature([FLAGS.doc_max_char_length], tf.int64)
+    features_def["doc_neg"] = tf.io.FixedLenFeature([FLAGS.doc_max_char_length], tf.int64)
+
     features = tf.io.parse_single_example(example, features_def)
     label = features.pop("label")
     return features, label
