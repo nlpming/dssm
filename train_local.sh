@@ -24,7 +24,7 @@ doc_max_char_length=200
 last_hidden_size=64
 char_vocab_size=18672
 NEG=50
-gpuid=3
+gpuid=0
 
 python main.py \
      --train_data=${train_data} \
