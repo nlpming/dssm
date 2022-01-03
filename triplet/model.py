@@ -78,13 +78,13 @@ def build_doc_model(features, mode, feature_key="doc", reuse=None):
     sent_encoder = tf.nn.l2_normalize(sent_encoder)
     return sent_encoder
 
-def cosine_similarity(query_vec, doc_vec):
+def cosine_similarity(query_vec, doc_vec, epsilon=1e-10):
     query_norm = tf.sqrt(tf.reduce_sum(tf.square(query_vec), axis=1, keepdims=True))
     doc_norm = tf.sqrt(tf.reduce_sum(tf.square(doc_vec), axis=1, keepdims=True))
 
     prod = tf.reduce_sum(tf.multiply(query_vec, doc_vec), axis=1, keepdims=True)
     norm_prod = tf.multiply(query_norm, doc_norm)
-    cos_sim = tf.truediv(prod, norm_prod)
+    cos_sim = tf.truediv(prod, norm_prod + epsilon)
     return cos_sim
 
 def model_fn(features, labels, mode, params):
